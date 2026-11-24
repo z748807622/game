@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<meta name="description" content="双人猜数字：各设一个 4 位暗号，轮流猜，先凑齐 4 个全对的人赢。">
+<title>猜数字 · 双人</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1b2129;
+    --line: #262d38;
+    --text: #e8ecf2;
+    --muted: #9aa6b6;
+    --accent: #4c8dff;
+    --ok: #34d17b;
+    --warn: #f5a623;
+    --bad: #ff6b6b;
+    --gold: #ffd166;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    color: var(--text);
+    background: radial-gradient(1100px 540px at 50% -12%, #182338, #0e1116 62%) fixed;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .hidden { display: none !important; }
+
+  /* ---------------------------------------------------------------- 顶栏 */
+  .top {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    background: rgba(14, 17, 22, .86);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-weight: 700; letter-spacing: .4px; white-space: nowrap; }
+  .brand small { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 6px; }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #556; display: inline-block; flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(52, 209, 123, .7); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); }
+  .link {
+    color: var(--muted); text-decoration: none; font-size: 12px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; white-space: nowrap;
+  }
+  .link:active { background: var(--panel-2); }
+
+  /* ---------------------------------------------------------------- 布局 */
+  main {
+    width: 100%; max-width: 520px; margin: 0 auto;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start;
+  }
+  @media (min-width: 820px) {
+    main { padding: 20px; }
+    body.in-room main { max-width: 1000px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+    body.in-room #cardPlay { grid-column: 1; grid-row: 1; }
+    body.in-room #cardMembers { grid-column: 2; grid-row: 1; }
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(27, 33, 41, .92), rgba(22, 27, 34, .94));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 0;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .28);
+  }
+  .card h2 {
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
+
+  /* ---------------------------------------------------------------- 表单 */
+  .field { display: flex; align-items: center; gap: 10px; }
+  .field > span { flex: 0 0 52px; color: var(--muted); font-size: 13px; }
+  input {
+    flex: 1; min-width: 0; min-height: 46px;
+    background: #0c1016; border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); padding: 0 12px;
+    font: inherit; font-size: 16px; /* 16px 避免 iOS 聚焦缩放 */
+    outline: none; -webkit-appearance: none; appearance: none;
+  }
+  input::placeholder { color: #5d6878; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(76, 141, 255, .18); }
+  input:disabled { opacity: .55; }
+
+  button {
+    min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0;
+    font: inherit; font-size: 15px; font-weight: 600; color: #fff;
+    background: var(--accent); cursor: pointer;
+    transition: filter .15s ease, transform .06s ease;
+  }
+  button:active { transform: scale(.985); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-weight: 500; }
+  button.tiny { min-height: 44px; padding: 0 12px; font-size: 12px; font-weight: 500; }
+  button.block { width: 100%; }
+  button:focus-visible, .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .row { display: flex; gap: 8px; }
+  .row > button { flex: 1; }
+  .hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .hint.bad { color: #ffb3b3; }
+  .hint.ok { color: #9df0bf; }
+
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* ---------------------------------------------------------------- 房间条 */
+  .roombar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .roombar .label { color: var(--muted); font-size: 12px; }
+  .code {
+    font: 700 19px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 3px; color: var(--gold);
+  }
+  .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; height: 24px; padding: 0 9px;
+    border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--muted); font-size: 11px; white-space: nowrap;
+  }
+  .pill.on { color: #9df0bf; border-color: rgba(52, 209, 123, .45); background: rgba(52, 209, 123, .12); }
+
+  .oppline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+  .oppline b { color: var(--text); font-weight: 600; }
+  .mdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+  .mdot.off { background: var(--warn); }
+
+  /* ---------------------------------------------------------------- 阶段 */
+  .stage { display: flex; flex-direction: column; gap: 10px; }
+  .bigcode {
+    margin: 4px 0 0; text-align: center; color: var(--gold);
+    font: 700 42px/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 8px; text-indent: 8px;
+  }
+
+  .band {
+    padding: 11px 12px; border-radius: 10px; text-align: center; font-weight: 600;
+    background: rgba(76, 141, 255, .14); border: 1px solid rgba(76, 141, 255, .4); color: #bcd4ff;
+  }
+  .band.muted { background: var(--panel-2); border-color: var(--line); color: var(--muted); }
+  .band.warn { background: rgba(245, 166, 35, .12); border-color: rgba(245, 166, 35, .4); color: #f2c078; }
+  .band.win { background: rgba(52, 209, 123, .14); border-color: rgba(52, 209, 123, .45); color: #9df0bf; }
+  .band.lose { background: rgba(255, 107, 107, .12); border-color: rgba(255, 107, 107, .4); color: #ffb3b3; }
+
+  .digits {
+    font: 700 26px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .42em; text-indent: .42em; text-align: center; min-height: 58px;
+  }
+  .myself { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .myself b {
+    font: 700 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 2px; color: var(--gold);
+  }
+  .myself .spacer { flex: 1; }
+
+  .guessrow {
+    display: flex; gap: 8px; align-items: stretch;
+    position: sticky; bottom: 0; z-index: 5;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(22, 27, 34, 0), rgba(22, 27, 34, .96) 34%);
+  }
+  .guessrow input { flex: 1; }
+  .guessrow button { flex: 0 0 88px; }
+
+  /* ---------------------------------------------------------------- 记录 */
+  .hist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .hcol > h4 { margin: 0; font-size: 11px; font-weight: 500; color: var(--muted); }
+  .hlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .hit {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 9px;
+  }
+  .hit b { font: 600 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; }
+  .hit .n { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .06); color: var(--muted); white-space: nowrap; }
+  .hit.h1 .n, .hit.h2 .n { background: rgba(76, 141, 255, .2); color: #a9c8ff; }
+  .hit.h3 .n { background: rgba(245, 166, 35, .2); color: #f2c078; }
+  .hit.h4 { border-color: rgba(52, 209, 123, .5); background: rgba(52, 209, 123, .12); }
+  .hit.h4 .n { background: rgba(52, 209, 123, .24); color: #9df0bf; }
+  .hit.win b { color: var(--ok); }
+  .empty { color: var(--muted); font-size: 12px; padding: 4px 2px; }
+
+  /* ---------------------------------------------------------------- 成员 */
+  .members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .member {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .member.self { border-color: rgba(76, 141, 255, .35); background: rgba(76, 141, 255, .08); }
+  .member.offline { opacity: .6; }
+  .member .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+
+  /* ---------------------------------------------------------------- 提示 */
+  .toast {
+    position: fixed; left: 50%; z-index: 50;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+    max-width: min(92vw, 420px); text-align: center;
+    background: #0b0f15; border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px; font-size: 13px; color: var(--text);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .5);
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.ok { border-color: rgba(52, 209, 123, .5); }
+  .toast.bad { border-color: rgba(255, 107, 107, .5); }
+
+  @media (min-width: 820px) {
+    .digits { font-size: 30px; }
+    .bigcode { font-size: 54px; }
+    .card { padding: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">猜数字<small>双人</small></div>
+  <div class="status"><i id="dot" class="dot"></i><span id="statusText">未连接</span></div>
+  <a class="link" href="index.html">中继 Demo</a>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------ 入场 -->
+  <section id="cardLobby" class="card">
+    <h2>开始一局</h2>
+    <p class="hint">两人各设一个 4 位暗号，轮流猜对方的。每次只报「数字和位置同时对上几个」，先凑齐 4 个的人赢。</p>
+    <label class="field"><span>昵称</span><input id="nickname" maxlength="12" value="玩家" autocomplete="off"></label>
+    <label class="field"><span>Token</span><input id="token" value="dev-token" autocomplete="off"></label>
+    <div class="row"><button id="btnCreate" class="block">创建房间</button></div>
+    <div class="divider">或加入朋友的房间</div>
+    <label class="field"><span>房间码</span><input id="code" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+    <label class="field"><span>密码</span><input id="pwd" placeholder="可留空" autocomplete="off"></label>
+    <div class="row"><button id="btnJoin" class="ghost block">加入房间</button></div>
+    <p class="hint">手机和电脑连同一局域网时，用 <code>http://电脑IP:8080/bulls.html</code> 打开即可对战。</p>
+  </section>
+
+  <!-- ------------------------------------------------------------ 对局 -->
+  <section id="cardPlay" class="card hidden">
+    <div class="roombar">
+      <span class="label">房间</span><b id="roomCode" class="code">----</b>
+      <button id="btnCopy" class="ghost tiny">复制</button>
+      <span class="spacer"></span>
+      <span id="roundTag" class="pill">第 1 局</span>
+      <button id="btnLeave" class="ghost tiny">离开</button>
+    </div>
+
+    <div class="oppline">
+      <i id="oppDot" class="mdot off"></i>
+      <span>对手：<b id="oppName">等待加入…</b></span>
+      <span id="oppReady" class="pill hidden">暗号已设好</span>
+    </div>
+
+    <!-- 等对手 -->
+    <div id="waitBox" class="stage">
+      <p class="bigcode" id="bigCode">----</p>
+      <p class="hint">把房间码发给朋友，等对手进来。满 2 人后房间会自动锁定。</p>
+    </div>
+
+    <!-- 设暗号 -->
+    <div id="setupBox" class="stage hidden">
+      <h3>设一个暗号</h3>
+      <p class="hint">4 位数字，可重复，首位不能是 0。设好之前别让对手看到你的屏幕。</p>
+      <input id="secretInput" class="digits" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+             placeholder="••••" autocomplete="off" aria-label="我的暗号">
+      <button id="btnSecret" class="block">锁定暗号</button>
+      <p id="secretHint" class="hint"></p>
+    </div>
+
+    <!-- 对局中 -->
+    <div id="playBox" class="stage hidden">
+      <div id="turnBand" class="band">轮到你猜</div>
+      <div class="myself">
+        <span>我的暗号</span><b id="mySecret">••••</b>
+        <span class="spacer"></span>
+        <button id="btnPeek" class="ghost tiny">显示</button>
+      </div>
+      <div class="guessrow">
+        <input id="guessInput" class="digits" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+               placeholder="猜 4 位" autocomplete="off" aria-label="我的猜测">
+        <button id="btnGuess">猜</button>
+      </div>
+      <p id="guessHint" class="hint"></p>
+    </div>
+
+    <!-- 结算 -->
+    <div id="overBox" class="stage hidden">
+      <div id="resultBand" class="band win">你赢了！</div>
+      <p id="revealLine" class="hint"></p>
+      <button id="btnRematch" class="block">再来一局</button>
+      <p id="rematchHint" class="hint"></p>
+    </div>
+
+    <!-- 记录 -->
+    <h3>对战记录</h3>
+    <div class="hist">
+      <div class="hcol">
+        <h4>我猜的</h4>
+        <ul id="historyMine" class="hlist"></ul>
+      </div>
+      <div class="hcol">
+        <h4>对手猜的</h4>
+        <ul id="historyTheirs" class="hlist"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ 成员 -->
+  <section id="cardMembers" class="card hidden">
+    <h2>成员 <span id="memberCount" class="pill">0</span></h2>
+    <ul id="members" class="members"></ul>
+    <p class="hint">双人对局：满 2 人自动锁房，有人离开后自动解锁。</p>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="relay.js"></script>
+<script src="bulls-core.js"></script>
+<script src="bulls.js"></script>
+</body>
+</html>

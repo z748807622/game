@@ -3,5 +3,5 @@ package web
 
 import "embed"
 
-//go:embed index.html relay.js
+//go:embed index.html relay.js bulls.html bulls-core.js bulls.js
 var FS embed.FS

@@ -39,7 +39,11 @@ internal/registry/            房间码索引、sid → (房间, slot)
 internal/server/              WS 接入、DevVerifier 鉴权、分发、限流
 web/index.html                内嵌 demo（连接/建房/加入/私聊/成员/协议帧日志）
 web/relay.js                  浏览器+Node 通用协议库（RelayClient）
+web/bulls.html / bulls.js / bulls-core.js   猜数字双人示例（移动端优先 UI + 纯状态机）
 web/test/{codec,e2e,ui}.test.js   向量对账、真进程 e2e、Chrome 真机 UI
+web/test/{bulls-core,bulls-e2e,bulls-ui}.test.js  猜数字内核 / 双客户端 e2e / 手机+桌面 UI
+web/test/{cdp.js,ws-polyfill.js}  跨平台 CDP 辅助、Node 18 用的极简 WebSocket
+docs/bulls-game.md            猜数字玩法、payload 约定、seq 回显与重同步说明
 docs/room-relay-design.md     设计 v1.1（架构、容量、实施计划）
 docs/protocol-v2.md           二进制线格式规范
 docs/api-reference.md         客户端接口参考

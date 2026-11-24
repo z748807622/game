@@ -10,6 +10,7 @@
 | [设计文档](docs/room-relay-design.md) | 架构、房间模型、并发与背压、容量指标、实施计划 |
 | [协议 v2](docs/protocol-v2.md) | 二进制线格式、字节布局、重连时序 |
 | [客户端接口](docs/api-reference.md) | 客户端要实现的全部行为、错误码、限制 |
+| [猜数字示例](docs/bulls-game.md) | 双人玩法、游戏 payload、移动端界面、测试与排错 |
 
 ## 当前状态
 
@@ -37,6 +38,18 @@ go run ./cmd/server
 两个标签页：一个「连接 → 创建房间」，另一个输入房间码「连接 → 加入」。
 点左侧成员可以定向私聊；刷新页面或断网可看到自动重连与消息补发。右下角是实时的协议帧日志。
 
+## 示例游戏：猜数字（双人）
+
+一个完整的示例游戏，演示「服务端只转发、规则全在客户端」：两人各设一个 4 位暗号（可重复、首位非 0），轮流猜对方的，每次只报「数字和位置同时对上几个」，先凑齐 4 个的人赢。
+
+```bash
+go run ./cmd/server
+# 电脑：http://localhost:8080/bulls.html
+# 手机（同一局域网）：http://<电脑局域网IP>:8080/bulls.html
+```
+
+一人「创建房间」拿到 4 位房间码，另一人输入房间码加入；满 2 人自动锁房。断网会自动重连补发，补发窗口不足时用快照同步局面。玩法、消息格式与实现细节见 [猜数字示例](docs/bulls-game.md)。
+
 ## 目录结构
 
 ```
@@ -46,8 +59,9 @@ internal/session/      连接封装：发送队列、背压、关闭语义
 internal/room/         房间 actor：成员、seq、重放、宽限期、房主
 internal/registry/     房间码索引、sid → (房间, 槽位) 索引
 internal/server/       WS 接入、鉴权、分发、限流、优雅退出
-web/                   内嵌 demo（index.html + relay.js）
-docs/                  设计、协议、接口文档
+web/                   内嵌页面：中继 demo + 猜数字（bulls.html / bulls.js / bulls-core.js）
+web/test/              JS 编解码对账、真进程 e2e、Chrome 真机 UI（含手机视口）
+docs/                  设计、协议、接口文档、猜数字说明
 scripts/               测试用启动脚本
 ```
 
@@ -72,9 +86,11 @@ scripts/               测试用启动脚本
 ```bash
 make test      # Go 单测（协议黄金字节、房间 actor、WS 端到端）
 make test-race # 同上，带 race detector
-make test-js   # JS 协议库对同一份黄金向量做编解码校验
-make e2e      # 真进程 + 两个 Node 客户端：建房/转发/断线补发/踢人
-make ui       # Chrome headless 驱动真实页面，产出 .tmp/demo.png
+make test-js   # JS 协议库对黄金向量做编解码校验 + 猜数字内核单测
+make e2e       # 真进程 + 两个 Node 客户端：建房/转发/断线补发/踢人
+make e2e-game  # 真进程 + 两个客户端把猜数字打满两局
+make ui        # Chrome headless 驱动真实页面，产出 .tmp/demo.png
+make ui-game   # Chrome headless：手机 390×844 + 桌面双视口打完整局，产出 .tmp/bulls-*.png
 ```
 
 Go 与 JS 两个实现共用 `internal/protocol/testdata/vectors.json`，任何一边改了字节布局，另一边测试会立刻红。

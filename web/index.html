@@ -39,6 +39,11 @@
   .dot.warn { background: var(--warn); }
   .dot.bad { background: var(--bad); }
   .sid { margin-left: auto; color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .nav {
+    color: #9dc0ff; text-decoration: none; font-size: 12px; white-space: nowrap;
+    border: 1px solid rgba(76, 141, 255, .45); border-radius: 999px; padding: 4px 10px;
+  }
+  .nav:hover { background: rgba(76, 141, 255, .12); }
 
   main {
     display: grid;
@@ -170,6 +175,7 @@
     main { grid-template-columns: 1fr; height: auto; }
     .right { grid-template-rows: 60vh 180px; }
     .col.left { order: 2; }
+    .sid { display: none; }
   }
 </style>
 </head>
@@ -177,6 +183,7 @@
 <header class="top">
   <div class="brand">房间中继<span>relay demo</span></div>
   <div class="status"><i id="dot" class="dot"></i><span id="statusText">未连接</span></div>
+  <a class="nav" href="bulls.html">玩猜数字 →</a>
   <div class="sid" id="meta">—</div>
 </header>
 
