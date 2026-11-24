@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>房间中继 Demo</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1b2129;
+    --border: #262d38;
+    --text: #e6e9ef;
+    --muted: #8b95a5;
+    --accent: #4c8dff;
+    --ok: #2ecc71;
+    --warn: #f5a623;
+    --bad: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  header.top {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #131820, var(--bg));
+  }
+  .brand { font-weight: 600; letter-spacing: .3px; }
+  .brand span { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555e6b; display: inline-block; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(46, 204, 113, .7); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); }
+  .sid { margin-left: auto; color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  main {
+    display: grid;
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+    height: calc(100vh - 57px);
+  }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .right { display: grid; grid-template-rows: minmax(0, 1fr) 190px; gap: 12px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2 .spacer { flex: 1; }
+  .badge {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0 8px; font-size: 11px; color: var(--text);
+  }
+
+  .field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .field span { width: 44px; color: var(--muted); font-size: 12px; flex: none; }
+  input {
+    flex: 1; min-width: 0;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    padding: 8px 10px;
+    font: inherit;
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  input:disabled { opacity: .5; }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+  button.tiny { padding: 2px 8px; font-size: 11px; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .row button { flex: 1; }
+  .hint { color: var(--muted); font-size: 11px; margin: 4px 0 0; line-height: 1.45; }
+
+  .members { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; }
+  .member {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 7px; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .member:hover { background: var(--panel-2); border-color: var(--border); }
+  .member.self { background: rgba(76, 141, 255, .1); border-color: rgba(76, 141, 255, .35); cursor: default; }
+  .member.offline { opacity: .55; }
+  .mdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+  .member.offline .mdot { background: var(--warn); }
+  .mlabel { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: rgba(76, 141, 255, .18); color: #9dc0ff; border: 1px solid rgba(76, 141, 255, .4);
+  }
+  .tag.off { background: rgba(245, 166, 35, .15); color: #f2c078; border-color: rgba(245, 166, 35, .4); }
+  .kick {
+    background: none; border: 0; color: var(--muted); cursor: pointer;
+    padding: 0 2px; font-size: 14px; line-height: 1;
+  }
+  .kick:hover { color: var(--bad); }
+
+  .messages {
+    flex: 1; overflow: auto; padding: 4px 2px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .msg { max-width: 76%; display: flex; flex-direction: column; gap: 2px; align-self: flex-start; }
+  .msg .who { font-size: 11px; color: var(--muted); }
+  .msg .bubble {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 7px 11px; border-radius: 10px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.me { align-self: flex-end; align-items: flex-end; }
+  .msg.me .bubble { background: rgba(76, 141, 255, .16); border-color: rgba(76, 141, 255, .4); }
+  .msg.sys { align-self: center; max-width: 92%; }
+  .msg.sys .bubble {
+    background: transparent; border: 0; color: var(--muted);
+    font-size: 12px; padding: 2px 8px; text-align: center;
+  }
+
+  .composer { display: flex; gap: 8px; padding-top: 10px; align-items: center; flex-wrap: wrap; }
+  .composer input { flex: 1; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(245, 166, 35, .14); border: 1px solid rgba(245, 166, 35, .4);
+    color: #f2c078; border-radius: 999px; padding: 3px 8px; font-size: 12px;
+    flex: none;
+  }
+  .chip button { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; font-size: 14px; }
+  .hidden { display: none !important; }
+
+  .loglines { overflow: auto; flex: 1; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .logline { white-space: pre; }
+  .logline.out { color: #7fb4ff; }
+  .logline.in { color: #9ee6b8; }
+
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    .right { grid-template-rows: 60vh 180px; }
+    .col.left { order: 2; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">房间中继<span>relay demo</span></div>
+  <div class="status"><i id="dot" class="dot"></i><span id="statusText">未连接</span></div>
+  <div class="sid" id="meta">—</div>
+</header>
+
+<main>
+  <aside class="col left">
+    <section class="panel">
+      <h2>连接</h2>
+      <label class="field"><span>昵称</span><input id="nickname" maxlength="12" value="玩家" autocomplete="off"></label>
+      <label class="field"><span>Token</span><input id="token" value="dev-token" autocomplete="off"></label>
+      <div class="row">
+        <button id="btnConnect">连接</button>
+        <button id="btnDisconnect" class="ghost">断开</button>
+      </div>
+      <p class="hint">开发模式：token 不做校验，仅要求非空。</p>
+    </section>
+
+    <section class="panel">
+      <h2>房间</h2>
+      <label class="field"><span>密码</span><input id="pwd" placeholder="可留空" autocomplete="off"></label>
+      <div class="row"><button id="btnCreate">创建房间</button></div>
+      <label class="field"><span>房间码</span><input id="code" maxlength="4" placeholder="ABCD" autocomplete="off"></label>
+      <div class="row">
+        <button id="btnJoin">加入</button>
+        <button id="btnLeave" class="ghost">离开</button>
+      </div>
+      <div class="row"><button id="btnLock" class="ghost">锁定房间</button></div>
+    </section>
+
+    <section class="panel" style="flex:1">
+      <h2>成员 <span id="memberCount" class="badge">0</span></h2>
+      <ul id="members" class="members"></ul>
+      <p class="hint">点击成员可定向私聊；房主可踢人。</p>
+    </section>
+  </aside>
+
+  <section class="col right">
+    <section class="panel">
+      <h2>消息</h2>
+      <div id="messages" class="messages"></div>
+      <div class="composer">
+        <div id="privateChip" class="chip hidden">私聊 → #<span id="privateSlot"></span><button id="clearPrivate" title="取消私聊">×</button></div>
+        <input id="input" placeholder="输入消息，回车发送（默认广播）" autocomplete="off" disabled>
+        <button id="btnSend" disabled>发送</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>协议帧 <span class="spacer"></span><button id="btnClearLog" class="ghost tiny">清空</button></h2>
+      <div id="log" class="loglines"></div>
+    </section>
+  </section>
+</main>
+
+<script src="relay.js"></script>
+<script>
+(function () {
+  'use strict';
+  var R = window.Relay;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var client = null;
+  var privateTo = null;
+  var locked = false;
+
+  function wsURL() {
+    return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+  }
+
+  function setStatus(text, kind) {
+    $('statusText').textContent = text;
+    $('dot').className = 'dot' + (kind ? ' ' + kind : '');
+  }
+
+  function hex(bytes) {
+    var out = '';
+    for (var i = 0; i < bytes.length; i++) out += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+    return out;
+  }
+
+  function meta() {
+    return { name: ($('nickname').value || '').trim() || '匿名' };
+  }
+
+  function sys(text) {
+    var box = document.createElement('div');
+    box.className = 'msg sys';
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    box.appendChild(bubble);
+    $('messages').appendChild(box);
+    $('messages').scrollTop = $('messages').scrollHeight;
+  }
+
+  function addMessage(slot, text, kind) {
+    var box = document.createElement('div');
+    box.className = 'msg ' + kind;
+    if (kind !== 'sys') {
+      var who = document.createElement('div');
+      who.className = 'who';
+      who.textContent = (client && slot === client.slot ? '我' : '玩家') + ' #' + slot;
+      box.appendChild(who);
+    }
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    box.appendChild(bubble);
+    $('messages').appendChild(box);
+    $('messages').scrollTop = $('messages').scrollHeight;
+  }
+
+  function parsePayload(bytes) {
+    var raw = R.fromUtf8(bytes);
+    try {
+      var obj = JSON.parse(raw);
+      if (obj && typeof obj.text === 'string') return obj.text;
+    } catch (e) { /* 非 JSON 负载，按原文显示 */ }
+    return raw;
+  }
+
+  function parseMeta(bytes) {
+    try { return JSON.parse(R.fromUtf8(bytes)) || {}; } catch (e) { return {}; }
+  }
+
+  function renderMembers() {
+    var ul = $('members');
+    ul.textContent = '';
+    var members = client && client.joined ? client.members : [];
+    $('memberCount').textContent = String(members.length);
+    for (var i = 0; i < members.length; i++) {
+      (function (m) {
+        var li = document.createElement('li');
+        li.className = 'member' +
+          (client && m.slot === client.slot ? ' self' : '') +
+          (m.online ? '' : ' offline');
+        var dot = document.createElement('i');
+        dot.className = 'mdot';
+        li.appendChild(dot);
+
+        var label = document.createElement('span');
+        label.className = 'mlabel';
+        var info = parseMeta(m.meta);
+        label.textContent = '#' + m.slot + ' ' + (info.name || '匿名');
+        li.appendChild(label);
+
+        if (client && m.slot === client.host) {
+          var tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.textContent = '房主';
+          li.appendChild(tag);
+        }
+        if (!m.online) {
+          var off = document.createElement('span');
+          off.className = 'tag off';
+          off.textContent = '断线';
+          li.appendChild(off);
+        }
+        if (client && client.host === client.slot && m.slot !== client.slot) {
+          var kick = document.createElement('button');
+          kick.className = 'kick';
+          kick.textContent = '×';
+          kick.title = '踢出';
+          kick.onclick = function (ev) {
+            ev.stopPropagation();
+            if (window.confirm('踢出玩家 #' + m.slot + '？')) client.kick(m.slot);
+          };
+          li.appendChild(kick);
+        }
+        if (client && m.slot !== client.slot) {
+          li.onclick = function () { setPrivate(m.slot); };
+        }
+        ul.appendChild(li);
+      })(members[i]);
+    }
+  }
+
+  function setPrivate(slot) {
+    privateTo = slot;
+    $('privateSlot').textContent = String(slot);
+    $('privateChip').classList.remove('hidden');
+  }
+
+  function clearPrivate() {
+    privateTo = null;
+    $('privateChip').classList.add('hidden');
+  }
+
+  function hint(text) {
+    $('meta').textContent = text;
+  }
+
+  function addLog(dir, f) {
+    var line = document.createElement('div');
+    line.className = 'logline ' + (dir === 'in' ? 'in' : 'out');
+    line.textContent = (dir === 'in' ? '← ' : '→ ') + f.name + '  ' + f.size + 'B';
+    var box = $('log');
+    box.appendChild(line);
+    while (box.childElementCount > 300) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function enterRoom(m, text) {
+    locked = false;
+    $('btnLock').textContent = '锁定房间';
+    $('code').value = m.code;
+    clearPrivate();
+    setStatus('房间 ' + m.code, 'ok');
+    sys(text);
+    $('input').disabled = false;
+    $('btnSend').disabled = false;
+    renderMembers();
+  }
+
+  function resetRoomUI() {
+    $('input').disabled = true;
+    $('btnSend').disabled = true;
+    $('code').value = '';
+    clearPrivate();
+    renderMembers();
+  }
+
+  function wireHandlers(c) {
+    c.on('ready', function (m) {
+      hint('sid ' + hex(m.sid).slice(0, 8) + '…');
+      if (!m.resumed) setStatus('已连接', 'ok');
+    });
+    c.on('created', function (m) { enterRoom(m, '房间已创建，把房间码发给朋友：' + m.code); });
+    c.on('joined', function (m) { enterRoom(m, '已加入房间 ' + m.code); });
+    c.on('resumed', function (m) { enterRoom(m, '已重连回房间 ' + m.code); });
+    c.on('reconnected', function (m) { if (m.missed) sys('服务端补发了 ' + m.missed + ' 帧'); });
+    c.on('peerJoin', function (p) { sys('玩家 #' + p.slot + ' 加入'); renderMembers(); });
+    c.on('peerLeave', function (p) {
+      var why = p.reason === 1 ? '（超时）' : p.reason === 2 ? '（被踢）' : '';
+      sys('玩家 #' + p.slot + ' 离开' + why);
+      if (privateTo === p.slot) clearPrivate();
+      renderMembers();
+    });
+    c.on('peerOffline', function (p) { sys('玩家 #' + p.slot + ' 断线，等待重连…'); renderMembers(); });
+    c.on('peerRejoin', function (p) { sys('玩家 #' + p.slot + ' 重连成功'); renderMembers(); });
+    c.on('host', function (h) { sys('房主变更为 #' + h.slot); renderMembers(); });
+    c.on('relay', function (m) {
+      var mine = client && m.from === client.slot;
+      addMessage(m.from, parsePayload(m.payload), mine ? 'me' : 'other');
+    });
+    c.on('serverError', function (e) { sys('服务端错误：' + e.name + (e.msg ? ' / ' + e.msg : '')); });
+    c.on('kicked', function () { sys('你被房主移出了房间'); });
+    c.on('resync', function () { sys('补发窗口不足，需要游戏层重新同步快照'); });
+    c.on('gap', function (g) { sys('序号空洞（期望 ' + g.expected + '，收到 ' + g.got + '），正在重连补发…'); });
+    c.on('reconnecting', function () { setStatus('重连中…', 'warn'); });
+    c.on('stopped', function () { setStatus('已断开', 'bad'); resetRoomUI(); });
+    c.on('close', function () { if (client) setStatus('连接关闭', 'bad'); });
+    c.on('tx', function (f) { addLog('out', f); });
+    c.on('frame', function (f) { addLog('in', f); });
+  }
+
+  $('btnConnect').onclick = function () {
+    if (client) return;
+    client = new R.RelayClient({ url: wsURL(), token: $('token').value.trim() || 'dev' });
+    wireHandlers(client);
+    setStatus('连接中…', 'warn');
+    client.connect().then(function () {
+      $('btnDisconnect').disabled = false;
+    }).catch(function (err) {
+      sys('连接失败：' + err.message);
+      setStatus('未连接', 'bad');
+      client = null;
+    });
+  };
+
+  $('btnDisconnect').onclick = function () {
+    if (!client) return;
+    client.close();
+    client = null;
+    setStatus('未连接', '');
+    hint('—');
+    resetRoomUI();
+  };
+
+  $('btnCreate').onclick = function () {
+    if (!client || !client.ws) return sys('请先连接');
+    client.create($('pwd').value, meta());
+  };
+
+  $('btnJoin').onclick = function () {
+    if (!client || !client.ws) return sys('请先连接');
+    var code = ($('code').value || '').trim().toUpperCase();
+    if (code.length !== 4) return sys('房间码是 4 位字母数字');
+    client.join(code, $('pwd').value, meta());
+  };
+
+  $('btnLeave').onclick = function () {
+    if (!client || !client.joined) return;
+    client.leave();
+    setStatus('已连接', 'ok');
+    resetRoomUI();
+    sys('已离开房间');
+  };
+
+  $('btnLock').onclick = function () {
+    if (!client || !client.joined) return sys('请先进入房间');
+    locked = !locked;
+    client.lock(locked);
+    $('btnLock').textContent = locked ? '解锁房间' : '锁定房间';
+    sys(locked ? '已锁定，新玩家无法加入' : '已解锁');
+  };
+
+  function sendMessage() {
+    if (!client || !client.joined) return;
+    var text = ($('input').value || '').trim();
+    if (!text) return;
+    var to = privateTo ? [privateTo] : [];
+    client.relay({ t: 'chat', text: text }, to);
+    addMessage(client.slot, text + (privateTo ? '（私聊 → #' + privateTo + '）' : ''), 'me');
+    $('input').value = '';
+  }
+
+  $('btnSend').onclick = sendMessage;
+  $('input').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && !ev.isComposing) sendMessage();
+  });
+  $('clearPrivate').onclick = clearPrivate;
+  $('btnClearLog').onclick = function () { $('log').textContent = ''; };
+
+  window.addEventListener('beforeunload', function () {
+    if (client) client.close();
+  });
+
+  resetRoomUI();
+  setStatus('未连接', '');
+})();
+</script>
+</body>
+</html>
