@@ -11,6 +11,7 @@
 | [协议 v2](docs/protocol-v2.md) | 二进制线格式、字节布局、重连时序 |
 | [客户端接口](docs/api-reference.md) | 客户端要实现的全部行为、错误码、限制 |
 | [猜数字示例](docs/bulls-game.md) | 双人玩法、游戏 payload、移动端界面、测试与排错 |
+| [打飞机示例](docs/plane-game.md) | 2–4 人合作实时射击：主机权威、目标点控制、二进制快照、带宽与容量 |
 
 ## 当前状态
 
@@ -23,6 +24,7 @@ M1 骨架 + 重连链路已可跑：
 - 心跳、断线重连、`lastSeq` 断点补发、窗口不足时的 `RESYNC`
 - 每连接背压（慢客户端断开）、帧率限流、优雅退出
 - 浏览器 demo（内嵌，无需构建）、JS 协议库（浏览器 / Node 通用）
+- 示例游戏：猜数字（双人）+ 打飞机（2–4 人合作，实时快照/预测）
 - 测试：Go 单测 + Node 端到端 + Chrome 真机 UI 冒烟
 
 **未做**：TCP/KCP 传输、观战、房间列表、持久化、真实鉴权（当前是开发桩）、多节点。
@@ -50,6 +52,21 @@ go run ./cmd/server
 
 一人「创建房间」拿到 4 位房间码，另一人输入房间码加入；满 2 人自动锁房。断网会自动重连补发，补发窗口不足时用快照同步局面。玩法、消息格式与实现细节见 [猜数字示例](docs/bulls-game.md)。
 
+## 示例游戏：打飞机（2–4 人合作）
+
+实时合作纵版射击：一台主机算敌人/弹幕/碰撞，队友各自操控一架飞机，共享分数打波次和 Boss。
+30Hz 模拟、15Hz 全量快照、30Hz 目标点输入；PC 鼠标跟随、移动端点按/拖动，飞机以固定最大速度追目标点，**不会随鼠标速度变速、也不会瞬移**。
+
+```bash
+go run ./cmd/server
+# 电脑：http://localhost:8080/plane.html
+# 手机（同一局域网）：http://<电脑局域网IP>:8080/plane.html
+```
+
+一人「创建房间」拿到 4 位房间码，其他人输入房间码加入；满 4 人自动锁房。断线自动重连，补发窗口不足时由下一帧全量快照自愈。玩法、字节布局与带宽账见 [打飞机示例](docs/plane-game.md)。
+
+实时局比桌游重：2 人典型约 0.29 Mbps、3 人约 0.46 Mbps 服务器出网/房；容量建议按 200–500 房压测后再定。
+
 ## 目录结构
 
 ```
@@ -59,9 +76,9 @@ internal/session/      连接封装：发送队列、背压、关闭语义
 internal/room/         房间 actor：成员、seq、重放、宽限期、房主
 internal/registry/     房间码索引、sid → (房间, 槽位) 索引
 internal/server/       WS 接入、鉴权、分发、限流、优雅退出
-web/                   内嵌页面：中继 demo + 猜数字（bulls.html / bulls.js / bulls-core.js）
-web/test/              JS 编解码对账、真进程 e2e、Chrome 真机 UI（含手机视口）
-docs/                  设计、协议、接口文档、猜数字说明
+web/                   内嵌页面：中继 demo + 猜数字 + 打飞机（plane.html / plane.js / plane-core.js / plane-net.js）
+web/test/              JS 编解码对账、真进程 e2e、Chrome 真机 UI（含手机视口、打飞机）
+docs/                  设计、协议、接口文档、猜数字 / 打飞机说明
 scripts/               测试用启动脚本
 ```
 
@@ -86,11 +103,13 @@ scripts/               测试用启动脚本
 ```bash
 make test      # Go 单测（协议黄金字节、房间 actor、WS 端到端）
 make test-race # 同上，带 race detector
-make test-js   # JS 协议库对黄金向量做编解码校验 + 猜数字内核单测
+make test-js   # JS 协议库对黄金向量做编解码校验 + 猜数字 / 打飞机内核与编解码单测
 make e2e       # 真进程 + 两个 Node 客户端：建房/转发/断线补发/踢人
 make e2e-game  # 真进程 + 两个客户端把猜数字打满两局
 make ui        # Chrome headless 驱动真实页面，产出 .tmp/demo.png
 make ui-game   # Chrome headless：手机 390×844 + 桌面双视口打完整局，产出 .tmp/bulls-*.png
+make e2e-plane # 真进程 + 主机/三名队友：目标点同步、快照频率、重连、RESYNC
+make ui-plane  # Chrome headless：手机 + 桌面双视口，鼠标/触摸操作，产出 .tmp/plane-*.png
 ```
 
 Go 与 JS 两个实现共用 `internal/protocol/testdata/vectors.json`，任何一边改了字节布局，另一边测试会立刻红。
@@ -103,6 +122,8 @@ Go 与 JS 两个实现共用 `internal/protocol/testdata/vectors.json`，任何�
 client.relay({ t: 'chat', text: 'hello' });       // 广播
 client.relay({ t: 'deal', cards: [3, 7] }, [2]);  // 只发给 2 号位
 ```
+
+实时/高频游戏建议直接用二进制：`client.relayBytes(bytes, targets)`；字节布局示例见 [打飞机示例](docs/plane-game.md)。
 
 ## 重要边界
 
