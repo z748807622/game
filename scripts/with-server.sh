@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ADDR="${ADDR:-127.0.0.1:18080}"
 mkdir -p .tmp
-./bin/relay -addr "$ADDR" -log warn > .tmp/server.log 2>&1 &
+./bin/relay -addr "$ADDR" -log warn ${RELAY_ARGS:-} > .tmp/server.log 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true' EXIT
 for _ in $(seq 1 100); do

@@ -234,12 +234,12 @@
 <header class="top">
   <div class="brand">打飞机 <small>2–4 人合作</small></div>
   <div class="status"><i id="dot" class="dot"></i><span id="statusText">未连接</span></div>
-  <a class="link" href="./">中继 Demo</a>
+  <a class="link" href="index.html">← 返回菜单</a>
 </header>
 
 <main>
   <section id="lobbyCard" class="card">
-    <h2>进入房间 <span>同一局域网即可联机</span></h2>
+    <h2>进入房间</h2>
     <div class="field"><span>昵称</span><input id="nickname" maxlength="12" placeholder="匿名玩家" autocomplete="nickname"></div>
     <div class="field"><span>Token</span><input id="token" maxlength="64" value="dev-token" autocomplete="off"></div>
     <div class="field"><span>密码</span><input id="pwd" maxlength="32" placeholder="可选" autocomplete="off"></div>
@@ -250,7 +250,6 @@
       <button id="btnJoin" class="ghost">加入</button>
     </div>
     <p id="joinHint" class="hint">一人创建房间拿到 4 位码，其他人输入房间码加入。</p>
-    <p class="hint" id="connHint">手机与电脑连同一 Wi-Fi，打开 <strong>http://电脑IP:8080/plane.html</strong>。</p>
   </section>
 
   <section id="roomWrap" class="hidden">
@@ -302,6 +301,7 @@
 
 <div id="toast" class="toast"></div>
 
+<script src="config.js"></script>
 <script src="relay.js"></script>
 <script src="plane-core.js"></script>
 <script src="plane-net.js"></script>

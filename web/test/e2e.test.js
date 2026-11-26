@@ -1,5 +1,9 @@
 // 端到端测试：需要先启动服务器。
 //   RELAY_URL=ws://127.0.0.1:18080/ws node web/test/e2e.test.js
+'use strict';
+
+require('./ws-polyfill.js'); // Node 18 没有全局 WebSocket
+
 const assert = require('assert');
 const R = require('../relay.js');
 

@@ -25,27 +25,33 @@
 | 断线 | 宽限期 60s（可配）；期内只广播 PEER_OFFLINE，不广播 PEER_LEAVE；恢复广播 PEER_REJOIN |
 | 房间 | 4 位房间码（字母表去掉 0/O/1/I）；CREATE 显式建房，JOIN 只加入已存在房间（防幽灵房）；创建者为房主；lock/kick/房主转移 |
 | 会话 | READY 只在新会话下发；重连成功首帧直接是 RECONNECTED |
-| 部署 | 单节点；RoomRegistry/Transport 留了拆分接口，暂不做 Gateway/RoomService |
+| 部署 | 单节点；前端可内嵌或交给 nginx（`-serve-web=false`）；反代后 `-trusted-proxies` 恢复真实 IP；RoomRegistry/Transport 留了拆分接口，暂不做 Gateway/RoomService |
 | 打飞机示例 | 主机权威 + 30Hz 模拟 + 15Hz 全量快照 + 30Hz 目标点；实时局带宽/写次数远高于桌游，容量单独压测 |
 
 ## 3. 已交付
 
 ```
 cmd/server/main.go            启动、参数、信号、优雅退出
+cmd/devtool/                  跨平台构建辅助（webdist 导出前端、clean）
 internal/protocol/            二进制编解码、op/错误码、黄金向量
 internal/protocol/testdata/vectors.json   Go 与 JS 共用的字节级黄金向量
 internal/room/                房间 actor：成员、seq、环形重放、宽限期、房主
 internal/session/             连接封装：发送队列、背压、关闭语义
 internal/registry/            房间码索引、sid → (房间, slot)
 internal/server/              WS 接入、DevVerifier 鉴权、分发、限流
-web/index.html                内嵌 demo（连接/建房/加入/私聊/成员/协议帧日志）
+web/index.html                示例菜单（移动/PC 自适应；中继 demo / 猜数字 / 打飞机入口）
+web/relay.html                中继 demo（连接/建房/加入/私聊/成员/协议帧日志）
 web/relay.js                  浏览器+Node 通用协议库（RelayClient）
 web/bulls.html / bulls.js / bulls-core.js   猜数字双人示例（移动端优先 UI + 纯状态机）
 web/plane.html / plane.js / plane-core.js / plane-net.js   打飞机 2–4 人合作示例（主机权威 + 二进制快照）
+web/config.js                 前端运行时配置（WS 地址；分离部署时改这里）
 web/test/{codec,e2e,ui}.test.js   向量对账、真进程 e2e、Chrome 真机 UI
 web/test/{bulls-core,bulls-e2e,bulls-ui}.test.js  猜数字内核 / 双客户端 e2e / 手机+桌面 UI
 web/test/{plane-core,plane-net,plane-e2e,plane-ui}.test.js  打飞机内核 / 编解码 / 主机+队友 e2e / 手机+桌面 UI
 web/test/{cdp.js,ws-polyfill.js}  跨平台 CDP 辅助、Node 18 用的极简 WebSocket
+web/test/{ws-url,split-ui}.test.js WS 地址解析单测、前后端分离 UI 冒烟
+deploy/nginx.conf              nginx 样例：静态站 + /ws 反代
+docs/deploy.md                 前后端分离部署指南（拓扑、TLS、真实 IP、排错）
 docs/bulls-game.md            猜数字玩法、payload 约定、seq 回显与重同步说明
 docs/plane-game.md            打飞机玩法、控制模型、字节布局、带宽与容量说明
 docs/room-relay-design.md     设计 v1.1（架构、容量、实施计划）
@@ -70,6 +76,7 @@ go run ./cmd/server        # 或 make run；打开 http://localhost:8080
 | `make ui` | Chrome headless 驱动真实页面，产出 .tmp/demo.png |
 | `make e2e-plane` | 真进程 + 主机/三名队友：目标点同步、快照频率、重连、RESYNC |
 | `make ui-plane` | Chrome headless：手机 + 桌面双视口，鼠标/触摸操作，产出 .tmp/plane-*.png |
+| `make ui-split` | 后端 `-serve-web=false` + 独立静态服务器 + `?ws=`，验证前后端分离 |
 
 全部通过；`go vet`、`gofmt` 干净。开发时多用 `GOCACHE=$PWD/.gocache` 规避沙箱对 `~/Library/Caches` 的写入限制。
 
@@ -94,7 +101,7 @@ go run ./cmd/server        # 或 make run；打开 http://localhost:8080
 2. **可观测**：Prometheus 指标（连接数、房间数、队列水位、丢弃、重放/重同步次数）
 3. **真实鉴权**：替换 `DevVerifier` 为 HMAC/JWT 校验
 4. **产品项**：观战、房间列表、匹配可插拔
-5. **上线件**：反代 Upgrade 透传、idle timeout > 20s、部署清单
+5. **上线件**：已补 nginx 样例与部署指南（见 `docs/deploy.md`）；真实鉴权仍未做。
 6. 远期：TCP 传输、多节点 Gateway + RoomService
 
 ## 8. 容易踩的坑

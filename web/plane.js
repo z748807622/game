@@ -158,23 +158,13 @@
     return { name: ($('nickname').value || '').trim() || '玩家' };
   }
 
-  function wsURL() {
-    try {
-      var q = new URLSearchParams(location.search).get('ws');
-      if (q) return q;
-    } catch (e) { /* 老浏览器 */ }
-    if (location.protocol === 'file:') return 'ws://127.0.0.1:8080/ws';
-    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return proto + '//' + location.host + '/ws';
-  }
-
   // ------------------------------------------------------------ 连接
 
   function ensureClient() {
     if (client && client.ws && client.ws.readyState === 1) return Promise.resolve(client);
     if (!client) {
       client = new R.RelayClient({
-        url: wsURL(),
+        url: R.wsURL(),
         token: ($('token').value || '').trim() || 'dev-token',
         autoReconnect: true
       });

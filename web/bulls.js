@@ -25,10 +25,6 @@
 
   // ------------------------------------------------------------ 小工具
 
-  function wsURL() {
-    return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
-  }
-
   function status(text, kind) {
     $('statusText').textContent = text;
     $('dot').className = 'dot' + (kind ? ' ' + kind : '');
@@ -585,7 +581,7 @@
     if (client && client.ws && client.ws.readyState === 1) return Promise.resolve(client);
     if (!client) {
       client = new R.RelayClient({
-        url: wsURL(),
+        url: R.wsURL(),
         token: ($('token').value || '').trim() || 'dev-token'
       });
       wire(client);

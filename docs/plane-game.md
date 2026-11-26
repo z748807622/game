@@ -779,16 +779,16 @@ go run ./cmd/server          # 或 make run
 # 手机（同一局域网）：http://<电脑IP>:8080/plane.html
 ```
 
-- 页面默认连 `ws://<当前 host>/ws`；如果页面不是从 8080 提供，可用 `?ws=ws://<host>:8080/ws` 覆盖。
+- 页面默认连 `ws://<当前 host>/ws`；前后端分开部署时在 `web/config.js` 里填 `wsUrl`，或用 `?ws=ws://<host>:8080/ws` 临时覆盖（优先级：`?ws=` > `config.js` > 同源）。
 - 如果站点是 https，必须用 `wss`；反代要放行 `Upgrade`。
 
 ### 13.5 严格零后端改动的备选
 
 如果哪天要求「一个 Go 文件都不能动」：
 
-- 用任意静态服务器托管 `web/`（例如 `python3 -m http.server 8000 --directory web`），打开 `http://<host>:8000/plane.html?ws=ws://<host>:8080/ws`。
-- 浏览器 WebSocket 不受 CORS 限制，服务器 `CheckOrigin` 当前放行；只要 `?ws=` 指对即可。
-- 这条路径不需要改 `embed.go`，但多一个静态进程；默认仍推荐 embed 一行，少一个部署件。
+- 用任意静态服务器托管 `web/`（例如 `python3 -m http.server 8000 --directory web`），打开 `http://<host>:8000/plane.html?ws=ws://<host>:8080/ws`；或把后端地址写进 `web/config.js` 后直接打开页面。
+- 浏览器 WebSocket 不受 CORS 限制，服务器 `CheckOrigin` 当前放行；只要 `?ws=` / `config.js` 指对即可。
+- 这条路径不需要改 `embed.go`，但多一个静态进程；默认仍推荐 embed 一行，少一个部署件；正式分离部署见 [部署指南](deploy.md)。
 
 ### 13.6 模块接口（实现轮按此落地）
 

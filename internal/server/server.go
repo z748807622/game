@@ -31,8 +31,9 @@ type Config struct {
 	PingInterval   time.Duration
 	ReadTimeout    time.Duration
 	HelloTimeout   time.Duration
-	RateLimit      int // 每连接每秒最大入站帧数，0 表示不限
-	CreatePerMin   int // 每 IP 每分钟建房数
+	RateLimit      int          // 每连接每秒最大入站帧数，0 表示不限
+	CreatePerMin   int          // 每 IP 每分钟建房数
+	TrustedProxies []*net.IPNet // 可信反代网段；命中才采信 X-Real-IP / X-Forwarded-For
 }
 
 func (c *Config) normalize() {
@@ -174,7 +175,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.untrack(c)
-	s.serve(c, clientIP(r))
+	s.serve(c, s.clientIP(r))
 }
 
 func (s *Server) serve(c *session.Conn, ip string) {
@@ -409,14 +410,6 @@ func (s *Server) heartbeat(c *session.Conn) {
 
 func (s *Server) sendError(c *session.Conn, code protocol.ErrCode) {
 	c.Send(protocol.EncodeError(code, code.String()))
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
 
 // connLimiter 是每连接每秒帧数的简单窗口限流。

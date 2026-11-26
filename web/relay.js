@@ -299,11 +299,47 @@
     return { code: code, name: ERR_NAME[code] || 'UNKNOWN', msg: fromUtf8(r.bytes16()) };
   }
 
+  // ------------------------------------------------------------ 部署地址
+
+  // wsURL 解析顺序：显式参数 > 页面 ?ws= > window.RELAY_CONFIG.wsUrl > 同源 /ws。
+  // 返回绝对 ws(s):// 地址；Node 中调用（没有 location）时退回本机 8080。
+  function normalizeWSURL(url) {
+    if (!url) return url;
+    if (url.indexOf('ws://') === 0 || url.indexOf('wss://') === 0) return url;
+    var g = typeof globalThis !== 'undefined' ? globalThis : {};
+    var loc = g.location;
+    var proto = loc && loc.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.charAt(0) === '/') {
+      if (!loc || !loc.host) return url;
+      return proto + '//' + loc.host + url;
+    }
+    if (url.indexOf('https://') === 0) return 'wss://' + url.slice(8);
+    if (url.indexOf('http://') === 0) return 'ws://' + url.slice(7);
+    return url;
+  }
+
+  function wsURL(explicit) {
+    if (explicit) return normalizeWSURL(explicit);
+    var g = typeof globalThis !== 'undefined' ? globalThis : {};
+    var loc = g.location;
+    if (loc) {
+      try {
+        var q = loc.search ? new URLSearchParams(loc.search).get('ws') : null;
+        if (q) return normalizeWSURL(q);
+      } catch (err) { /* 老浏览器没有 URLSearchParams */ }
+    }
+    if (g.RELAY_CONFIG && g.RELAY_CONFIG.wsUrl) return normalizeWSURL(g.RELAY_CONFIG.wsUrl);
+    if (loc && loc.protocol && loc.host && loc.protocol !== 'file:') {
+      return (loc.protocol === 'https:' ? 'wss://' : 'ws://') + loc.host + '/ws';
+    }
+    return 'ws://127.0.0.1:8080/ws';
+  }
+
   // ------------------------------------------------------------ 客户端
 
   function RelayClient(opts) {
     opts = opts || {};
-    this.url = opts.url;
+    this.url = opts.url || wsURL();
     this.token = opts.token || 'dev';
     this.autoReconnect = opts.autoReconnect !== false;
     this.handlers = {};
@@ -617,6 +653,7 @@
     decodeRelay: decodeRelay,
     decodePeerJoin: decodePeerJoin,
     decodeError: decodeError,
+    wsURL: wsURL,
     utf8: utf8,
     fromUtf8: fromUtf8
   };

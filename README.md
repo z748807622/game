@@ -12,6 +12,7 @@
 | [客户端接口](docs/api-reference.md) | 客户端要实现的全部行为、错误码、限制 |
 | [猜数字示例](docs/bulls-game.md) | 双人玩法、游戏 payload、移动端界面、测试与排错 |
 | [打飞机示例](docs/plane-game.md) | 2–4 人合作实时射击：主机权威、目标点控制、二进制快照、带宽与容量 |
+| [部署指南](docs/deploy.md) | 前后端分离：nginx 静态站 + 独立 Go 后端、分域连 `wss`、反代与真实 IP |
 
 ## 当前状态
 
@@ -34,11 +35,33 @@ M1 骨架 + 重连链路已可跑：
 ```bash
 # 需要 Go 1.27+
 go run ./cmd/server
-# 打开 http://localhost:8080
+# 打开 http://localhost:8080 → 示例菜单
 ```
 
-两个标签页：一个「连接 → 创建房间」，另一个输入房间码「连接 → 加入」。
+首页是示例菜单（手机/PC 自适应），选「中继 Demo」进入聊天页（也可直接访问 `/relay.html`）。
+中继 Demo 里开两个标签页：一个「连接 → 创建房间」，另一个输入房间码「连接 → 加入」。
 点左侧成员可以定向私聊；刷新页面或断网可看到自动重连与消息补发。右下角是实时的协议帧日志。
+
+## 前后端分离部署
+
+前端交给 nginx、后端只跑 `/ws` 时：
+
+```bash
+make build        # 后端二进制 bin/relay
+make web-dist     # 前端静态文件 dist/web，交给 nginx root
+./bin/relay -addr 127.0.0.1:8080 -serve-web=false -trusted-proxies 127.0.0.1/32
+```
+
+没有 make（例如部分 Windows 环境）时用等价命令：
+
+```bash
+go build -o bin/relay ./cmd/server
+go run ./cmd/devtool webdist
+```
+
+nginx 同域反代 `/ws`（推荐）时前端零配置，样例见 [deploy/nginx.conf](deploy/nginx.conf)；
+前后端不同域时在 `web/config.js` 填 `wsUrl`，或用 `?ws=` 临时覆盖。
+完整步骤、TLS、真实 IP 与排错见 [部署指南](docs/deploy.md)。默认不带参数运行时仍是内嵌页面模式。
 
 ## 示例游戏：猜数字（双人）
 
@@ -71,14 +94,19 @@ go run ./cmd/server
 
 ```
 cmd/server/            启动、配置、信号处理
+cmd/devtool/           跨平台构建辅助（webdist 导出前端、clean）
 internal/protocol/     帧编解码、op/错误码、黄金向量测试
 internal/session/      连接封装：发送队列、背压、关闭语义
 internal/room/         房间 actor：成员、seq、重放、宽限期、房主
 internal/registry/     房间码索引、sid → (房间, 槽位) 索引
 internal/server/       WS 接入、鉴权、分发、限流、优雅退出
-web/                   内嵌页面：中继 demo + 猜数字 + 打飞机（plane.html / plane.js / plane-core.js / plane-net.js）
-web/test/              JS 编解码对账、真进程 e2e、Chrome 真机 UI（含手机视口、打飞机）
-docs/                  设计、协议、接口文档、猜数字 / 打飞机说明
+web/                   内嵌页面：示例菜单 + 中继 demo + 猜数字 + 打飞机
+web/index.html         示例菜单（移动/PC 自适应，三入口）
+web/relay.html         中继 demo（连接/建房/加入/私聊/协议帧日志）
+web/config.js          前端运行时配置（WS 地址；分离部署时改这里）
+web/test/              JS 编解码对账、真进程 e2e、Chrome 真机 UI（含手机视口、打飞机、分离部署）
+deploy/nginx.conf      nginx 样例：静态站 + /ws 反代
+docs/                  设计、协议、接口、部署、猜数字 / 打飞机说明
 scripts/               测试用启动脚本
 ```
 
@@ -96,6 +124,9 @@ scripts/               测试用启动脚本
 | `-read-timeout` | 60s | 读空闲超时 |
 | `-rate-limit` | 200 | 每连接每秒最大入站帧数 |
 | `-create-per-min` | 10 | 每 IP 每分钟建房数 |
+| `-serve-web` | true | 是否提供内置静态页面；前后端分离时设 false |
+| `-static-dir` | 空 | 改用磁盘目录提供页面（本地联调；不能与 `-serve-web=false` 同用） |
+| `-trusted-proxies` | 空 | 可信反代 CIDR/IP 列表（逗号分隔），从 `X-Real-IP`/`X-Forwarded-For` 取真实 IP |
 | `-log` | info | debug / info / warn / error |
 
 ## 测试
@@ -110,6 +141,7 @@ make ui        # Chrome headless 驱动真实页面，产出 .tmp/demo.png
 make ui-game   # Chrome headless：手机 390×844 + 桌面双视口打完整局，产出 .tmp/bulls-*.png
 make e2e-plane # 真进程 + 主机/三名队友：目标点同步、快照频率、重连、RESYNC
 make ui-plane  # Chrome headless：手机 + 桌面双视口，鼠标/触摸操作，产出 .tmp/plane-*.png
+make ui-split  # 前后端分离：-serve-web=false 后端 + 独立静态站 + ?ws=
 ```
 
 Go 与 JS 两个实现共用 `internal/protocol/testdata/vectors.json`，任何一边改了字节布局，另一边测试会立刻红。

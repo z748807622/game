@@ -236,7 +236,7 @@
 <header class="top">
   <div class="brand">猜数字<small>双人</small></div>
   <div class="status"><i id="dot" class="dot"></i><span id="statusText">未连接</span></div>
-  <a class="link" href="index.html">中继 Demo</a>
+  <a class="link" href="index.html">← 返回菜单</a>
 </header>
 
 <main>
@@ -251,7 +251,6 @@
     <label class="field"><span>房间码</span><input id="code" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
     <label class="field"><span>密码</span><input id="pwd" placeholder="可留空" autocomplete="off"></label>
     <div class="row"><button id="btnJoin" class="ghost block">加入房间</button></div>
-    <p class="hint">手机和电脑连同一局域网时，用 <code>http://电脑IP:8080/bulls.html</code> 打开即可对战。</p>
   </section>
 
   <!-- ------------------------------------------------------------ 对局 -->
@@ -334,6 +333,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="config.js"></script>
 <script src="relay.js"></script>
 <script src="bulls-core.js"></script>
 <script src="bulls.js"></script>

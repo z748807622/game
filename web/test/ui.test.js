@@ -3,7 +3,7 @@
 //   CHROME="..." RELAY_URL=http://127.0.0.1:18080 node web/test/ui.test.js
 const fs = require('fs');
 const path = require('path');
-const { launch, newPage, evalIn, waitFor, screenshot } = require('./cdp.js');
+const { launch, newPage, evalIn, waitFor, setViewport, screenshot } = require('./cdp.js');
 
 const BASE = process.env.RELAY_URL || 'http://127.0.0.1:18080';
 const OUT_DIR = process.env.OUT_DIR || path.join(__dirname, '..', '..', '.tmp');
@@ -12,8 +12,21 @@ const OUT_DIR = process.env.OUT_DIR || path.join(__dirname, '..', '..', '.tmp');
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const browser = await launch({ outDir: OUT_DIR });
   try {
-    const p1 = await newPage(browser.cdp, BASE + '/');
-    const p2 = await newPage(browser.cdp, BASE + '/');
+    // 首页菜单：入口齐全，手机/桌面都不横向溢出
+    const menu = await newPage(browser.cdp, BASE + '/');
+    const links = await evalIn(browser.cdp, menu, "Array.from(document.querySelectorAll('.menu a')).map(a => a.getAttribute('href'))");
+    if (links.join(',') !== 'relay.html,bulls.html,plane.html') {
+      throw new Error('菜单入口不对: ' + links.join(','));
+    }
+    for (const [w, h, mobile] of [[390, 844, true], [1440, 900, false]]) {
+      await setViewport(browser.cdp, menu, w, h, mobile);
+      const overflow = await evalIn(browser.cdp, menu, 'document.documentElement.scrollWidth > document.documentElement.clientWidth');
+      if (overflow) throw new Error('菜单在 ' + w + 'px 下横向溢出');
+    }
+    console.log('ok 菜单入口与响应式');
+
+    const p1 = await newPage(browser.cdp, BASE + '/relay.html');
+    const p2 = await newPage(browser.cdp, BASE + '/relay.html');
 
     const boot = (nick, token) => `(() => {
       document.getElementById('nickname').value = ${JSON.stringify(nick)};

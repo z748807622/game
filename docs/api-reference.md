@@ -199,6 +199,9 @@ c.close();
 2. 反代空闲超时必须 **大于** 心跳间隔（Nginx 默认 60s，心跳 20s，勉强够；建议调到 120s）。
 3. 小程序要求 `wss://` + 域名白名单，不能带自定义 header——这正是 token 走首帧的原因。
 4. 服务端不设 CORS：demo 与 `/ws` 同源；如果客户端独立部署，浏览器 WS 不受 CORS 限制，但 HTTP 资源需要自己处理。
+5. 前端 WS 地址解析顺序：`RelayClient({url})` > 页面 `?ws=` > `web/config.js` 的 `RELAY_CONFIG.wsUrl` > 同源 `/ws`。默认同源，只有在前后端分域时才需要改 `config.js`。
+6. 后端在反代之后时，要加 `-trusted-proxies <反代网段>` 才会从 `X-Real-IP`/`X-Forwarded-For` 取真实客户端 IP；否则按 IP 的建房限流会退化成共用反代 IP。
+7. 前后端分离时用 `-serve-web=false` 关闭内置页面，只保留 `/ws` 与 `/healthz`；完整步骤见 [部署指南](deploy.md)。
 
 ## 10. 版本兼容
 
